@@ -1,0 +1,156 @@
+Question:
+I want to design the (Stochastic Computing) SC neuron in a SC-based Neuron network, the input, w, and b are SC format. 
+1. are the input, w, and b are should be same length bit stream?
+2. if design it in hardware, is the neuron's load should wait all bits of input, w, and b read completely?
+
+Answer:
+In Stochastic Computing (SC), the inputs, weights (w), and biases (b) are typically represented as bit streams. The length of these bit streams can have a significant impact on the accuracy and performance of the computations. Longer bit streams can provide more accurate representations of the numbers, but they also require more time and resources to process.
+
+In many cases, it's beneficial for all the bit streams to have the same length, because this can simplify the design and synchronization of the system. However, it's not strictly necessary. If the bit streams have different lengths, you would need to handle the alignment and synchronization carefully to ensure correct results.
+
+In a hardware implementation of a SC-based neuron, you don't necessarily need to wait for all bits of the inputs, weights, and biases to be read completely before starting the computations. SC is inherently a streaming computation model, which means that you can start processing the bits as soon as they arrive.
+
+However, the final output of the neuron won't be available until all bits have been processed. Also, if you're using a non-linear activation function, you might need to wait for all bits to be read before you can compute the activation, depending on how the function is implemented.
+
+Keep in mind that the design of the system can be influenced by many factors, including the specific requirements of the application, the available hardware resources, and the desired trade-off between accuracy and performance.
+
+Question:
+design a SC neuron, use python simulation: 
+1. input, w, and b are 64-bit stream.
+2. SC-mul is bitwise AND for input and w.
+3. SC-add is a selector, perform random choose 1-bit from (input*w) and b.
+2. output = activation (w * input + b). output is a 64-bit stream.
+3. activation use tanh, which is a FSM:
+    state: s0,s1,s2,s3,s4,s5,s6,s7;
+    init state = s0;
+    if func receive 0, state sn = sn-1; but if state = s0, then no change;
+    if func receive 1, state sn = sn+1; but if state = s7, then no change;
+    when state change, generate 1-bit output, if state = s0, s1, s2, s3, output = 0; if state = s4, s5, s6, s7, output = 1;
+    for example if we have input 64bit, w 64bit, b 64bit, then we have 64bit output.
+4. use python to simulate the SC neuron, and plot the output.
+
+Question:
+draw the pipeline of the neuron behavior, inlcude the SC-mul, SC-add, and activation. using text format.
+
+Ans:
+timeline    --------------------------------------------------------------------------------
+load input  **********------------------**********------------------**********------------------
+load w      **********------------------**********------------------**********------------------
+load b      **********------------------**********------------------**********------------------
+SC-mul      ----------**********------------------**********------------------**********--------
+SC-add      ------------------**********------------------**********------------------**********
+activation  ------------------------------**********------------------**********----------------
+
+Question:
+1. can neuron perform SC-add as soon as 1-bit of SC-mul is ready? or should wait all 64-bit of SC-mul is ready?
+2. can neuron perform activation as soon as 1-bit of SC-add is ready? or should wait all 64-bit of SC-add is ready?
+if can, please draw the pipeline of the neuron behavior.
+
+Ans:
+timeline    --------------------------------------------------------------------------------
+load input  **********------------------**********------------------**********------------------
+load w      **********------------------**********------------------**********------------------
+load b      **********------------------**********------------------**********------------------
+SC-mul      ----------**********------------------**********------------------**********--------
+SC-add      ------------**********------------------**********------------------**********------
+activation  --------------**********------------------**********------------------**********----
+
+Question:
+follow this pipeline, re-write the python simulation, and plot the output.
+
+Question:
+follow this pipeline, write the verilog code of the neuron.
+before write, give me detail hardware design, include the FSM of activation.
+if I said ok, then write the verilog code.
+if not ok, we will talk about the design.
+
+Answer:
+Sure, let's first discuss the hardware design of the neuron.
+
+The neuron will have three main components:
+
+Multiplication and Addition: The multiplication of the input and weight bit streams can be done using an AND gate. The addition of the multiplication result and the bias can be done using an XOR gate. These operations can be performed in parallel for each bit in the bit streams.
+
+Activation Function: The activation function is implemented as a finite state machine (FSM) with 8 states (s0 to s7). The FSM takes the result of the addition as input and generates a bit of the output bit stream for each input bit. The FSM operates as follows:
+
+The initial state is s0.
+If the FSM receives a 0, it moves to the previous state (sn-1), unless it's already in state s0, in which case it stays in s0.
+If the FSM receives a 1, it moves to the next state (sn+1), unless it's already in state s7, in which case it stays in s7.
+When the state changes, the FSM generates a bit of the output. If the current state is s0, s1, s2, or s3, the output bit is 0. If the current state is s4, s5, s6, or s7, the output bit is 1.
+Output Generation: The output of the neuron is the bit stream generated by the FSM. The bits are generated sequentially, one for each bit in the input bit streams.
+
+The neuron operates in a streaming fashion, processing one bit of the input bit streams at a time. It doesn't need to wait for all bits to be read before starting the computations. The final output of the neuron won't be available until all bits have been processed.
+
+Does this design meet your requirements? If you have any questions or suggestions, please let me know.
+
+Question:
+"The addition of the multiplication result and the bias can be done using an XOR gate."
+I think it should be a selector, perform random choose 1-bit from (input*w) and b.
+the random choose in hardware should use a random bit stream, which this stream's p=0.5.
+if the random bit is 0, then choose 1-bit from (input*w), if the random bit is 1, then choose 1-bit from b.
+is the description same with the "XOR"?
+
+Answer:
+I apologize for the confusion. You're correct. In stochastic computing, addition is typically performed by interleaving or muxing the bit streams, not by using an XOR operation. The XOR operation is used for addition in binary arithmetic, but in stochastic computing, it corresponds to a different operation (namely, XNOR corresponds to multiplication and XOR corresponds to the operation 1 - multiplication).
+
+The interleaving operation can be implemented using a multiplexer (mux) that is controlled by a random bit stream with p=0.5, as you described. If the random bit is 0, the mux selects a bit from the (input*w) stream, and if the random bit is 1, it selects a bit from the bias stream.
+
+I apologize for the oversight. Thank you for pointing out the error. I'll correct this in the hardware design.
+
+Question:
+One thing I want to say that in my NN, a neuron receive three inputs, 
+the three inputs are from three different neurons or from outside memory.
+and each input has its own weight, like:
+output = activation (w1 * input1 + w2 * input2 + w3 * input3) + b
+but not all inputs are in use. some time has 2 input, some time has 3 input, some time has 1 input.
+so for each input should have a switch, we can config it using control signal.
+
+Question:
+assume we have 16*16 neurons, 16row and 16col, each neurons has its own address.
+input, w, b store in memory, give me the design of load input, load w, load b into neuron.
+
+Answer:
+In a Coarse-Grained Reconfigurable Array (CGRA) architecture with 256 neurons arranged in a 16x16 grid, each neuron can be addressed using a row and column index. The inputs, weights, and biases for each neuron can be stored in a memory and loaded into the neurons as needed.
+
+Here's a possible design for loading the inputs, weights, and biases into the neurons:
+
+Memory Organization: The memory can be organized as a 3D array, with one dimension for the inputs, weights, and biases, one dimension for the neurons, and one dimension for the bits in the bit streams. For example, memory[i][j][k] could represent the k-th bit of the input, weight, or bias for the j-th neuron, where i=0 for inputs, i=1 for weights, and i=2 for biases.
+
+Loading Mechanism: The loading of the inputs, weights, and biases can be controlled by a load signal for each neuron. When the load signal for a neuron is activated, the corresponding bits from the memory are loaded into the neuron. This can be done using a multiplexer that selects between the current values in the neuron and the values in the memory.
+
+Control Signals: The control signals for the load operation can be generated by a control unit. The control unit can receive the addresses of the neurons that need to be loaded and generate the appropriate load signals.
+
+Synchronization: To ensure correct operation, the loading of the inputs, weights, and biases needs to be synchronized with the operation of the neurons. This can be done using a clock signal that controls both the neurons and the loading mechanism.
+
+
+Question:
+until now, the control signal of neuron is? detail description.
+until now, the process of neuron perform computation is? detail description.
+
+Question:
+now is ok to design the neuron using verilog.
+
+Question:
+I think I need to re-design the func of computation.
+the new computation is:
+output = activation (w1 * input1 + w2 * input2 + w3 * input3) + b;
+for multiplication, we use AND gate.
+for addition: w1 * input1 + w2 * input2 + w3 * input3, we use mux select from w1*input1, w2*input2, w3*input3. the select signal is random bit stream with p=1/3.
+for addition: activated + b, we use mux select from activated, b. the select signal is random bit stream with p=0.5.
+
+Answer:
+Thank you for the updated computation function. Here's the revised design:
+
+Multiplication: Each input is multiplied by its corresponding weight using an AND gate. This operation is performed separately for each bit in the bit streams.
+
+First Addition: The results of the multiplications are added together using a multiplexer-based adder. The adder is controlled by a random bit stream with p=1/3. If the random bit is 0 or 1, the adder selects a bit from one of the multiplication results (w1input1, w2input2, or w3*input3).
+
+Activation Function: The result of the first addition is passed through a finite state machine that implements the sigmoid activation function. The FSM generates a bit of the output bit stream for each input bit.
+
+Second Addition: The output of the activation function is added to the bias using another multiplexer-based adder. This adder is controlled by a random bit stream with p=0.5. If the random bit is 0, the adder selects a bit from the output of the activation function, and if the random bit is 1, it selects a bit from the bias stream.
+
+Output Generation: The output of the neuron is the bit stream generated by the second adder. The bits are generated sequentially, one for each bit in the input bit streams.
+
+Question:
+
+
